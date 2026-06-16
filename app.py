@@ -11,7 +11,21 @@ import plotly.graph_objects as go
 from groq import Groq
 import re
 import os
+import subprocess
 from datetime import datetime
+
+# ==================== AUTO-CREATE DATABASE ====================
+# This ensures database exists on Streamlit Cloud
+if not os.path.exists("sales.db"):
+    with st.spinner("📦 Setting up database for first time use..."):
+        try:
+            subprocess.run(["python", "setup_database.py"], check=True, capture_output=True)
+            subprocess.run(["python", "add_more_tables.py"], check=True, capture_output=True)
+            st.success("✅ Database ready! Refreshing...")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Database setup failed: {str(e)}")
+            st.stop()
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -62,7 +76,7 @@ st.markdown("""
 
 # ==================== CONSTANTS ====================
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sales.db")
-SUPPORTED_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]
+SUPPORTED_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"]
 
 # ==================== DATABASE FUNCTIONS ====================
 def db_exists():
@@ -145,7 +159,7 @@ def execute_sql(sql_query):
         return None, str(e)
 
 # ==================== GROQ AI FUNCTIONS ====================
-def generate_sql(question, schema_info, api_key, model="llama-3.3-70b-versatile"):
+def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
     if not schema_info:
         return None
     
@@ -179,6 +193,7 @@ RULES:
 4. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
 5. For non-aggregation queries, add LIMIT 100
 6. Use JOINs when the question references multiple tables
+7. Use appropriate column names from the correct tables
 
 User Question: {question}
 
@@ -282,10 +297,17 @@ def main():
     # ==================== SIDEBAR ====================
     with st.sidebar:
         st.markdown("### 🔑 Configuration")
-        api_key = st.text_input("Groq API Key:", type="password", key="api_key")
-        if not api_key:
-            st.warning("⚠️ Enter your Groq API key to continue")
-            st.stop()
+        
+        # Get API key from secrets or user input
+        try:
+            api_key = st.secrets["GROQ_API_KEY"]
+            st.success("✅ API Key loaded from secrets")
+        except:
+            api_key = st.text_input("Groq API Key:", type="password", key="api_key")
+            if not api_key:
+                st.warning("⚠️ Enter your Groq API key to continue")
+                st.stop()
+        
         model = st.selectbox("AI Model:", SUPPORTED_MODELS, index=0)
         st.divider()
         
@@ -305,7 +327,7 @@ def main():
             else:
                 st.error("Could not load stats")
         else:
-            st.error("❌ Database not found. Run setup_database.py")
+            st.error("❌ Database not found")
             st.stop()
         st.divider()
         
@@ -375,7 +397,7 @@ def main():
             key="question_input"
         )
     
-    # ==================== SUBMIT LOGIC (No Clear Button) ====================
+    # ==================== SUBMIT LOGIC ====================
     auto_submit = st.session_state.get('auto_submit', False)
     
     col1, col2 = st.columns([1, 4])
