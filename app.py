@@ -34,7 +34,6 @@ def create_database_if_missing():
         try:
             conn = sqlite3.connect(DB_PATH)
             
-            # Products
             products = ["Laptop", "Phone", "Tablet", "Headphones", "Monitor", 
                        "Keyboard", "Mouse", "Desk Chair", "Webcam", "USB Cable"]
             customers = [f"Customer_{i}" for i in range(1, 101)]
@@ -126,7 +125,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==================== CONSTANTS ====================
-DB_PATH = "sales.db"
 SUPPORTED_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"]
 
 # ==================== DATABASE FUNCTIONS ====================
@@ -214,7 +212,15 @@ def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
     if not schema_info:
         return None
     
-    client = Groq(api_key=api_key)
+    # Fix: Initialize Groq client properly for cloud
+    try:
+        client = Groq(
+            api_key=api_key,
+            http_client=None  # Prevents proxy issues
+        )
+    except Exception as e:
+        st.error(f"Groq client error: {str(e)}")
+        return None
     
     schema_text = ""
     for table_name, info in schema_info.items():
@@ -234,7 +240,6 @@ RULES:
 3. Use proper SQLite syntax
 4. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
 5. For non-aggregation queries, add LIMIT 100
-6. Use appropriate column names from the correct tables
 
 User Question: {question}
 
@@ -266,6 +271,7 @@ SQL:"""
         
         return sql_query
     except Exception as e:
+        st.error(f"Groq API error: {str(e)}")
         return None
 
 # ==================== CHART FUNCTIONS ====================
