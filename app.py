@@ -258,9 +258,24 @@ def execute_sql(sql_query):
         return None, "Database not found"
     
     try:
+        # Clean SQL - remove multiple statements
         sql_query = sql_query.strip()
+        
+        # Split by newlines and filter out empty lines
+        lines = sql_query.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('--'):
+                cleaned_lines.append(line)
+        
+        # Join back together
+        sql_query = ' '.join(cleaned_lines)
+        
+        # Remove any semicolons
         sql_query = re.sub(r';+$', '', sql_query)
         
+        # Security check
         dangerous = ['drop', 'delete', 'insert', 'update', 'alter', 'create', 'truncate']
         if any(k in sql_query.lower() for k in dangerous):
             return None, f"⚠️ Security: {dangerous} operations are not allowed"
@@ -284,7 +299,6 @@ def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
         if info['sample']:
             schema_text += f"Sample: {info['sample'][0]}\n"
     
-    # Add relationship hints
     relationships = """
 RELATIONSHIPS:
 - sales.customer -> customers.customer_name (JOIN on customer = customer_name)
@@ -292,19 +306,20 @@ RELATIONSHIPS:
 - sales.region -> regions.region_name (JOIN on region = region_name)
 """
     
-    prompt = f"""Convert to SQLite SQL.
+    prompt = f"""Convert to a SINGLE SQLite SQL query.
 
 DATABASE SCHEMA:
 {schema_text}
 
 {relationships}
 
-RULES:
-1. Return ONLY the SQL query, no explanations
-2. Do NOT include semicolons
-3. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
-4. For non-aggregation queries, add LIMIT 100
-5. Use JOINs when the question references multiple tables
+CRITICAL RULES:
+1. Return ONLY ONE SQL query - absolutely NO multiple statements
+2. Do NOT include any explanations, comments, or extra text
+3. Do NOT include semicolons
+4. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
+5. For non-aggregation queries, add LIMIT 100
+6. Use JOINs when the question references multiple tables
 
 Question: {question}
 
@@ -319,7 +334,7 @@ SQL:"""
         payload = {
             "model": model,
             "messages": [
-                {"role": "system", "content": "You are an SQL expert. Return only SQL."},
+                {"role": "system", "content": "You are an SQL expert. Return ONLY ONE SQL query. No explanations."},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.1,
@@ -332,13 +347,21 @@ SQL:"""
             result = response.json()
             sql_query = result['choices'][0]['message']['content'].strip()
             
+            # Remove markdown code blocks
             sql_query = re.sub(r'```sql\n?', '', sql_query)
             sql_query = re.sub(r'```\n?', '', sql_query)
+            
+            # Remove comments
             sql_query = re.sub(r'--.*?(\n|$)', '\n', sql_query)
             sql_query = re.sub(r'/\*.*?\*/', '', sql_query, flags=re.DOTALL)
+            
+            # Remove semicolons
             sql_query = sql_query.rstrip(';')
+            
+            # Clean up whitespace
             sql_query = ' '.join(sql_query.split())
             
+            # Check if aggregation
             sql_lower = sql_query.lower()
             is_aggregation = any(word in sql_lower for word in ['count(', 'sum(', 'avg(', 'group by', 'max(', 'min('])
             if not is_aggregation and 'limit' not in sql_lower:
@@ -456,7 +479,6 @@ def main():
             st.stop()
         st.divider()
         
-        # ==================== SHOW TABLES ====================
         st.markdown("### 📊 Tables Available")
         schema_info = get_table_schema()
         if schema_info:
