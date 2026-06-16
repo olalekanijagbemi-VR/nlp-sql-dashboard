@@ -22,29 +22,94 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================== AUTO-CREATE DATABASE ====================
+# ==================== AUTO-CREATE DATABASE (ALL 4 TABLES) ====================
 DB_PATH = "sales.db"
 
 def create_database_if_missing():
-    """Create database directly if it doesn't exist"""
+    """Create database with ALL tables if it doesn't exist"""
     if os.path.exists(DB_PATH):
         return True
     
-    with st.spinner("📦 Creating database (10,000+ rows)..."):
+    with st.spinner("📦 Creating database with 4 tables (10,000+ rows)..."):
         try:
             conn = sqlite3.connect(DB_PATH)
             
-            products = ["Laptop", "Phone", "Tablet", "Headphones", "Monitor", 
-                       "Keyboard", "Mouse", "Desk Chair", "Webcam", "USB Cable"]
-            customers = [f"Customer_{i}" for i in range(1, 101)]
-            regions = ["North", "South", "East", "West", "Central"]
+            # ============================================
+            # 1. PRODUCTS TABLE
+            # ============================================
+            products_data = [
+                {"product_id": 1, "product_name": "Laptop", "category": "Electronics", "supplier": "TechCorp", "cost": 600},
+                {"product_id": 2, "product_name": "Phone", "category": "Electronics", "supplier": "MobileInc", "cost": 400},
+                {"product_id": 3, "product_name": "Tablet", "category": "Electronics", "supplier": "TechCorp", "cost": 250},
+                {"product_id": 4, "product_name": "Headphones", "category": "Accessories", "supplier": "SoundCo", "cost": 40},
+                {"product_id": 5, "product_name": "Monitor", "category": "Electronics", "supplier": "DisplayPro", "cost": 120},
+                {"product_id": 6, "product_name": "Keyboard", "category": "Accessories", "supplier": "TypeMaster", "cost": 25},
+                {"product_id": 7, "product_name": "Mouse", "category": "Accessories", "supplier": "ClickTech", "cost": 15},
+                {"product_id": 8, "product_name": "Desk Chair", "category": "Furniture", "supplier": "ComfortZone", "cost": 120},
+                {"product_id": 9, "product_name": "Webcam", "category": "Accessories", "supplier": "VisionPro", "cost": 35},
+                {"product_id": 10, "product_name": "USB Cable", "category": "Accessories", "supplier": "CableMasters", "cost": 5}
+            ]
+            products_df = pd.DataFrame(products_data)
+            products_df.to_sql("products", conn, if_exists="replace", index=False)
+            
+            # ============================================
+            # 2. CUSTOMERS TABLE
+            # ============================================
+            customers_data = []
+            cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", 
+                     "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose"]
+            states = ["CA", "NY", "TX", "FL", "IL", "PA", "OH", "GA", "NC", "MI"]
+            segments = ["Premium", "Gold", "Silver", "Bronze"]
+            segment_weights = [0.1, 0.2, 0.3, 0.4]
+            
+            for i in range(1, 101):
+                join_date = pd.date_range("2020-01-01", "2023-12-31")[np.random.randint(0, 1461)]
+                customers_data.append({
+                    "customer_id": i,
+                    "customer_name": f"Customer_{i}",
+                    "email": f"customer{i}@email.com",
+                    "city": np.random.choice(cities),
+                    "state": np.random.choice(states),
+                    "join_date": join_date.strftime("%Y-%m-%d"),
+                    "customer_segment": np.random.choice(segments, p=segment_weights)
+                })
+            customers_df = pd.DataFrame(customers_data)
+            customers_df.to_sql("customers", conn, if_exists="replace", index=False)
+            
+            # ============================================
+            # 3. REGIONS TABLE
+            # ============================================
+            regions_data = [
+                {"region_id": 1, "region_name": "North", "manager": "Alice Johnson", "office": "Boston"},
+                {"region_id": 2, "region_name": "South", "manager": "Bob Smith", "office": "Atlanta"},
+                {"region_id": 3, "region_name": "East", "manager": "Carol Davis", "office": "New York"},
+                {"region_id": 4, "region_name": "West", "manager": "Dave Wilson", "office": "San Francisco"},
+                {"region_id": 5, "region_name": "Central", "manager": "Eve Brown", "office": "Chicago"}
+            ]
+            regions_df = pd.DataFrame(regions_data)
+            regions_df.to_sql("regions", conn, if_exists="replace", index=False)
+            
+            # ============================================
+            # 4. SALES TABLE (10,000 rows)
+            # ============================================
+            product_names = ["Laptop", "Phone", "Tablet", "Headphones", "Monitor", 
+                           "Keyboard", "Mouse", "Desk Chair", "Webcam", "USB Cable"]
+            customer_names = [f"Customer_{i}" for i in range(1, 101)]
+            region_names = ["North", "South", "East", "West", "Central"]
             dates = pd.date_range("2023-01-01", "2024-12-31")
+            
+            product_categories = {
+                "Laptop": "Electronics", "Phone": "Electronics", "Tablet": "Electronics",
+                "Headphones": "Accessories", "Monitor": "Electronics", "Keyboard": "Accessories",
+                "Mouse": "Accessories", "Desk Chair": "Furniture", "Webcam": "Accessories",
+                "USB Cable": "Accessories"
+            }
             
             np.random.seed(42)
             data = []
             
             for transaction_id in range(10000):
-                product = np.random.choice(products)
+                product = np.random.choice(product_names)
                 price = np.random.randint(50, 2000)
                 quantity = np.random.randint(1, 11)
                 revenue = price * quantity
@@ -53,25 +118,25 @@ def create_database_if_missing():
                 data.append({
                     "transaction_id": transaction_id + 1,
                     "date": random_date.strftime("%Y-%m-%d"),
-                    "customer": np.random.choice(customers),
-                    "region": np.random.choice(regions),
+                    "customer": np.random.choice(customer_names),
+                    "region": np.random.choice(region_names),
                     "product": product,
-                    "category": np.random.choice(["Electronics", "Accessories", "Furniture"]),
+                    "category": product_categories[product],
                     "quantity": quantity,
                     "price": price,
                     "revenue": revenue
                 })
             
-            df = pd.DataFrame(data)
-            df["date"] = pd.to_datetime(df["date"])
-            df["month"] = df["date"].dt.month
-            df["year"] = df["date"].dt.year
-            df["quarter"] = df["date"].dt.quarter
+            sales_df = pd.DataFrame(data)
+            sales_df["date"] = pd.to_datetime(sales_df["date"])
+            sales_df["month"] = sales_df["date"].dt.month
+            sales_df["year"] = sales_df["date"].dt.year
+            sales_df["quarter"] = sales_df["date"].dt.quarter
             
-            df.to_sql("sales", conn, if_exists="replace", index=False)
+            sales_df.to_sql("sales", conn, if_exists="replace", index=False)
             conn.close()
             
-            st.success("✅ Database created with 10,000 rows!")
+            st.success("✅ Database created with 4 tables (10,000+ rows)!")
             return True
             
         except Exception as e:
@@ -207,7 +272,7 @@ def execute_sql(sql_query):
     except Exception as e:
         return None, str(e)
 
-# ==================== GROQ AI FUNCTIONS (Using Requests - No Proxy Issues) ====================
+# ==================== GROQ AI FUNCTIONS (Using Requests) ====================
 def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
     if not schema_info:
         return None
@@ -219,23 +284,33 @@ def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
         if info['sample']:
             schema_text += f"Sample: {info['sample'][0]}\n"
     
+    # Add relationship hints
+    relationships = """
+RELATIONSHIPS:
+- sales.customer -> customers.customer_name (JOIN on customer = customer_name)
+- sales.product -> products.product_name (JOIN on product = product_name)
+- sales.region -> regions.region_name (JOIN on region = region_name)
+"""
+    
     prompt = f"""Convert to SQLite SQL.
 
 DATABASE SCHEMA:
 {schema_text}
+
+{relationships}
 
 RULES:
 1. Return ONLY the SQL query, no explanations
 2. Do NOT include semicolons
 3. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
 4. For non-aggregation queries, add LIMIT 100
+5. Use JOINs when the question references multiple tables
 
 Question: {question}
 
 SQL:"""
     
     try:
-        # Direct API call with requests - no proxy issues
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -271,7 +346,7 @@ SQL:"""
             
             return sql_query
         else:
-            st.error(f"Groq API error: {response.status_code} - {response.text[:200]}")
+            st.error(f"Groq API error: {response.status_code}")
             return None
             
     except Exception as e:
@@ -379,6 +454,14 @@ def main():
         else:
             st.error("❌ Database not found")
             st.stop()
+        st.divider()
+        
+        # ==================== SHOW TABLES ====================
+        st.markdown("### 📊 Tables Available")
+        schema_info = get_table_schema()
+        if schema_info:
+            for table_name, info in schema_info.items():
+                st.caption(f"• {table_name}: {info['row_count']:,} rows")
         st.divider()
         
         st.markdown("### 📜 Query History")
