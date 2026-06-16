@@ -8,7 +8,7 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from openai import OpenAI
+import requests
 import re
 import os
 import numpy as np
@@ -207,16 +207,10 @@ def execute_sql(sql_query):
     except Exception as e:
         return None, str(e)
 
-# ==================== GROQ AI FUNCTIONS (Using OpenAI Client) ====================
+# ==================== GROQ AI FUNCTIONS (Using Requests - No Proxy Issues) ====================
 def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
     if not schema_info:
         return None
-    
-    # Use OpenAI client with Groq's base URL - bypasses proxy issues
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://api.groq.com/openai/v1"
-    )
     
     schema_text = ""
     for table_name, info in schema_info.items():
@@ -241,30 +235,45 @@ Question: {question}
 SQL:"""
     
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
+        # Direct API call with requests - no proxy issues
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model,
+            "messages": [
                 {"role": "system", "content": "You are an SQL expert. Return only SQL."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
-            max_tokens=500
-        )
+            "temperature": 0.1,
+            "max_tokens": 500
+        }
         
-        sql_query = response.choices[0].message.content.strip()
-        sql_query = re.sub(r'```sql\n?', '', sql_query)
-        sql_query = re.sub(r'```\n?', '', sql_query)
-        sql_query = re.sub(r'--.*?(\n|$)', '\n', sql_query)
-        sql_query = re.sub(r'/\*.*?\*/', '', sql_query, flags=re.DOTALL)
-        sql_query = sql_query.rstrip(';')
-        sql_query = ' '.join(sql_query.split())
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
         
-        sql_lower = sql_query.lower()
-        is_aggregation = any(word in sql_lower for word in ['count(', 'sum(', 'avg(', 'group by', 'max(', 'min('])
-        if not is_aggregation and 'limit' not in sql_lower:
-            sql_query += " LIMIT 100"
-        
-        return sql_query
+        if response.status_code == 200:
+            result = response.json()
+            sql_query = result['choices'][0]['message']['content'].strip()
+            
+            sql_query = re.sub(r'```sql\n?', '', sql_query)
+            sql_query = re.sub(r'```\n?', '', sql_query)
+            sql_query = re.sub(r'--.*?(\n|$)', '\n', sql_query)
+            sql_query = re.sub(r'/\*.*?\*/', '', sql_query, flags=re.DOTALL)
+            sql_query = sql_query.rstrip(';')
+            sql_query = ' '.join(sql_query.split())
+            
+            sql_lower = sql_query.lower()
+            is_aggregation = any(word in sql_lower for word in ['count(', 'sum(', 'avg(', 'group by', 'max(', 'min('])
+            if not is_aggregation and 'limit' not in sql_lower:
+                sql_query += " LIMIT 100"
+            
+            return sql_query
+        else:
+            st.error(f"Groq API error: {response.status_code} - {response.text[:200]}")
+            return None
+            
     except Exception as e:
         st.error(f"Groq API error: {str(e)}")
         return None
