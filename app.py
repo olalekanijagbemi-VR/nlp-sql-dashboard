@@ -8,7 +8,7 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from groq import Groq
+from openai import OpenAI
 import re
 import os
 import numpy as np
@@ -207,13 +207,16 @@ def execute_sql(sql_query):
     except Exception as e:
         return None, str(e)
 
-# ==================== GROQ AI FUNCTIONS ====================
+# ==================== GROQ AI FUNCTIONS (Using OpenAI Client) ====================
 def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
     if not schema_info:
         return None
     
-    # Works with groq==0.5.0 - no proxy issues
-    client = Groq(api_key=api_key)
+    # Use OpenAI client with Groq's base URL - bypasses proxy issues
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.groq.com/openai/v1"
+    )
     
     schema_text = ""
     for table_name, info in schema_info.items():
