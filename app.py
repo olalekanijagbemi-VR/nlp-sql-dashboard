@@ -212,7 +212,7 @@ def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
     if not schema_info:
         return None
     
-    # Simplified client initialization
+    # Works with groq==0.5.0 - no proxy issues
     client = Groq(api_key=api_key)
     
     schema_text = ""
@@ -229,7 +229,7 @@ DATABASE SCHEMA:
 
 RULES:
 1. Return ONLY the SQL query, no explanations
-2. Do NOT include semicolons at the end
+2. Do NOT include semicolons
 3. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
 4. For non-aggregation queries, add LIMIT 100
 
@@ -241,7 +241,7 @@ SQL:"""
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are an SQL expert. Return ONLY SQL, no explanations."},
+                {"role": "system", "content": "You are an SQL expert. Return only SQL."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
