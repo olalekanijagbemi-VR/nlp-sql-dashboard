@@ -212,15 +212,8 @@ def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
     if not schema_info:
         return None
     
-    # Fix: Initialize Groq client properly for cloud
-    try:
-        client = Groq(
-            api_key=api_key,
-            http_client=None  # Prevents proxy issues
-        )
-    except Exception as e:
-        st.error(f"Groq client error: {str(e)}")
-        return None
+    # Simplified client initialization
+    client = Groq(api_key=api_key)
     
     schema_text = ""
     for table_name, info in schema_info.items():
@@ -229,19 +222,18 @@ def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
         if info['sample']:
             schema_text += f"Sample: {info['sample'][0]}\n"
     
-    prompt = f"""You are an expert SQLite SQL generator. Convert the user's question to SQL.
+    prompt = f"""Convert to SQLite SQL.
 
 DATABASE SCHEMA:
 {schema_text}
 
 RULES:
-1. Return ONLY the SQL query, no explanations, no comments
+1. Return ONLY the SQL query, no explanations
 2. Do NOT include semicolons at the end
-3. Use proper SQLite syntax
-4. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
-5. For non-aggregation queries, add LIMIT 100
+3. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
+4. For non-aggregation queries, add LIMIT 100
 
-User Question: {question}
+Question: {question}
 
 SQL:"""
     
@@ -249,7 +241,7 @@ SQL:"""
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are an SQL expert. Generate only SQL queries, no explanations."},
+                {"role": "system", "content": "You are an SQL expert. Return ONLY SQL, no explanations."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
