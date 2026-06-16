@@ -11,21 +11,8 @@ import plotly.graph_objects as go
 from groq import Groq
 import re
 import os
-import subprocess
+import numpy as np
 from datetime import datetime
-
-# ==================== AUTO-CREATE DATABASE ====================
-# This ensures database exists on Streamlit Cloud
-if not os.path.exists("sales.db"):
-    with st.spinner("📦 Setting up database for first time use..."):
-        try:
-            subprocess.run(["python", "setup_database.py"], check=True, capture_output=True)
-            subprocess.run(["python", "add_more_tables.py"], check=True, capture_output=True)
-            st.success("✅ Database ready! Refreshing...")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Database setup failed: {str(e)}")
-            st.stop()
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -34,6 +21,70 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ==================== AUTO-CREATE DATABASE ====================
+DB_PATH = "sales.db"
+
+def create_database_if_missing():
+    """Create database directly if it doesn't exist"""
+    if os.path.exists(DB_PATH):
+        return True
+    
+    with st.spinner("📦 Creating database (10,000+ rows)..."):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            
+            # Products
+            products = ["Laptop", "Phone", "Tablet", "Headphones", "Monitor", 
+                       "Keyboard", "Mouse", "Desk Chair", "Webcam", "USB Cable"]
+            customers = [f"Customer_{i}" for i in range(1, 101)]
+            regions = ["North", "South", "East", "West", "Central"]
+            dates = pd.date_range("2023-01-01", "2024-12-31")
+            
+            np.random.seed(42)
+            data = []
+            
+            for transaction_id in range(10000):
+                product = np.random.choice(products)
+                price = np.random.randint(50, 2000)
+                quantity = np.random.randint(1, 11)
+                revenue = price * quantity
+                random_date = dates[np.random.randint(0, len(dates))]
+                
+                data.append({
+                    "transaction_id": transaction_id + 1,
+                    "date": random_date.strftime("%Y-%m-%d"),
+                    "customer": np.random.choice(customers),
+                    "region": np.random.choice(regions),
+                    "product": product,
+                    "category": np.random.choice(["Electronics", "Accessories", "Furniture"]),
+                    "quantity": quantity,
+                    "price": price,
+                    "revenue": revenue
+                })
+            
+            df = pd.DataFrame(data)
+            df["date"] = pd.to_datetime(df["date"])
+            df["month"] = df["date"].dt.month
+            df["year"] = df["date"].dt.year
+            df["quarter"] = df["date"].dt.quarter
+            
+            df.to_sql("sales", conn, if_exists="replace", index=False)
+            conn.close()
+            
+            st.success("✅ Database created with 10,000 rows!")
+            return True
+            
+        except Exception as e:
+            st.error(f"Database creation failed: {str(e)}")
+            return False
+
+# Check and create database
+if not os.path.exists(DB_PATH):
+    if create_database_if_missing():
+        st.rerun()
+    else:
+        st.stop()
 
 # ==================== CUSTOM CSS ====================
 st.markdown("""
@@ -75,7 +126,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==================== CONSTANTS ====================
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sales.db")
+DB_PATH = "sales.db"
 SUPPORTED_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"]
 
 # ==================== DATABASE FUNCTIONS ====================
@@ -172,19 +223,10 @@ def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
         if info['sample']:
             schema_text += f"Sample: {info['sample'][0]}\n"
     
-    relationships = """
-RELATIONSHIPS:
-- sales.customer -> customers.customer_name (JOIN on customer = customer_name)
-- sales.product -> products.product_name (JOIN on product = product_name)
-- sales.region -> regions.region_name (JOIN on region = region_name)
-"""
-    
     prompt = f"""You are an expert SQLite SQL generator. Convert the user's question to SQL.
 
 DATABASE SCHEMA:
 {schema_text}
-
-{relationships}
 
 RULES:
 1. Return ONLY the SQL query, no explanations, no comments
@@ -192,8 +234,7 @@ RULES:
 3. Use proper SQLite syntax
 4. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
 5. For non-aggregation queries, add LIMIT 100
-6. Use JOINs when the question references multiple tables
-7. Use appropriate column names from the correct tables
+6. Use appropriate column names from the correct tables
 
 User Question: {question}
 
@@ -298,7 +339,6 @@ def main():
     with st.sidebar:
         st.markdown("### 🔑 Configuration")
         
-        # Get API key from secrets or user input
         try:
             api_key = st.secrets["GROQ_API_KEY"]
             st.success("✅ API Key loaded from secrets")
