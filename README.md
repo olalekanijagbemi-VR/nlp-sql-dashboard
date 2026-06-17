@@ -1,46 +1,71 @@
-# 📊 AI-Powered SQL Analytics Dashboard
+# 🐘 AI-Powered SQL Analytics Dashboard
 
-Convert natural language questions to SQL queries instantly. Ask questions in plain English and get data + charts.
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)](https://streamlit.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Groq](https://img.shields.io/badge/Groq-FF6B00?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com)
+[![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=for-the-badge&logo=plotly&logoColor=white)](https://plotly.com)
 
-![Dashboard Demo](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
+**Ask questions in plain English • Get SQL results + charts instantly • Enterprise-grade PostgreSQL**
+
+---
 
 ## 🚀 Live Demo
 
-[Add your Streamlit Cloud URL here after deployment]
+> **Try it yourself:** [Your Streamlit Cloud URL here]
+
+---
 
 ## ✨ Features
 
-- 🔍 **Natural Language to SQL** - Ask questions in plain English
-- 📊 **Auto Charts** - Visualizations generated automatically
-- 🔗 **JOIN Support** - Query across multiple tables (sales, customers, products, regions)
-- 📜 **Query History** - Reuse previous queries with one click
-- 💡 **Example Questions** - Pre-built queries to get started
-- 📥 **CSV Export** - Download results instantly
-- 🔒 **Security** - SQL injection protection
-- 🎨 **Professional UI** - Clean, responsive design
+| Feature | Description |
+|---------|-------------|
+| 🔍 **Natural Language to SQL** | Ask questions in plain English, AI generates SQL automatically |
+| 📊 **Auto Charts** | Visualizations generated instantly from query results |
+| 🔗 **Multi-Table JOINs** | Query across 4 normalized tables with relationships |
+| 🐘 **PostgreSQL** | Enterprise-grade database with Supabase cloud hosting |
+| 📜 **Query History** | Save and reuse previous queries with one click |
+| 💡 **Example Questions** | Pre-built queries to get started immediately |
+| 📥 **CSV Export** | Download any query result with one click |
+| 🔒 **Security** | SQL injection protection and safe query execution |
+| 🎨 **Professional UI** | Clean, responsive design with dark/light mode support |
 
-## 🛠️ Tech Stack
-
-- **Frontend:** Streamlit
-- **AI:** Groq (Llama 3.3 70B)
-- **Database:** SQLite
-- **Visualization:** Plotly
-- **Data:** Pandas
+---
 
 ## 📁 Database Schema
 
-| Table | Rows | Description |
-|-------|------|-------------|
-| sales | 10,000 | Transaction data (product, quantity, price, revenue) |
-| customers | 100 | Customer details (segment, location) |
-| products | 10 | Product info (category, supplier, cost) |
-| regions | 5 | Region info (manager, office) |
+| Table | Rows | Description | Key Columns |
+|-------|------|-------------|-------------|
+| **sales** | 10,000 | Transaction data | transaction_id, sale_date, customer, product, revenue |
+| **customers** | 100 | Customer details | customer_id, customer_name, email, customer_segment |
+| **products** | 10 | Product information | product_id, product_name, category, supplier, cost |
+| **regions** | 5 | Region management | region_id, region_name, manager, office |
+
+### Entity Relationship Diagram
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend & Backend
+- **Framework:** Streamlit 1.35.0
+- **Language:** Python 3.12
+- **Database:** PostgreSQL (Supabase)
+- **AI/LLM:** Groq API (Llama 3.1 8B)
+- **Visualization:** Plotly 5.19.0
+- **Data Processing:** Pandas 2.2.0, NumPy 1.26.4
+
+### Deployment
+- **Frontend Hosting:** Streamlit Cloud
+- **Database Hosting:** Supabase (PostgreSQL)
+- **Version Control:** Git / GitHub
+
+---
 
 ## 🏃‍♂️ Quick Start
 
-### 1. Clone the repository
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/olalekanijagbemi-VR/nlp-sql-dashboard.git
 cd nlp-sql-dashboard
