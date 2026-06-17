@@ -1,5 +1,6 @@
 """
 PostgreSQL Version - AI-Powered SQL Analytics Dashboard
+Updated for Supabase with sale_date column
 """
 
 import streamlit as st
@@ -9,7 +10,6 @@ import requests
 import re
 import os
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 # ==================== PAGE CONFIG ====================
@@ -107,7 +107,8 @@ def get_table_stats():
         cursor.execute("SELECT COUNT(DISTINCT product) FROM sales")
         stats['unique_products'] = cursor.fetchone()[0]
         
-        cursor.execute("SELECT MIN(date), MAX(date) FROM sales")
+        # FIXED: Use sale_date instead of date
+        cursor.execute("SELECT MIN(sale_date), MAX(sale_date) FROM sales")
         min_date, max_date = cursor.fetchone()
         stats['min_date'] = min_date
         stats['max_date'] = max_date
@@ -236,6 +237,24 @@ def save_to_history(question, sql, success, row_count=None, error=None):
     })
     st.session_state.query_history = st.session_state.query_history[:20]
 
+# ==================== AUTO-GENERATE CHART ====================
+def auto_generate_chart(df):
+    if df.empty or len(df) < 2:
+        return None
+    
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+    categorical_cols = df.select_dtypes(include=['object', 'datetime64']).columns.tolist()
+    
+    if not numeric_cols:
+        return None
+    
+    if categorical_cols and numeric_cols:
+        fig = px.bar(df, x=categorical_cols[0], y=numeric_cols[0],
+                    title=f"{numeric_cols[0]} by {categorical_cols[0]}",
+                    text_auto=True, template="plotly_white")
+        return fig
+    return None
+
 # ==================== MAIN APP ====================
 def main():
     st.markdown("""
@@ -273,17 +292,13 @@ def main():
             border: 1px solid #f5c6cb;
             margin: 1rem 0;
         }
-        .elephant {
-            font-size: 1.5rem;
-            margin-right: 0.5rem;
-        }
     </style>
     """, unsafe_allow_html=True)
     
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1><span class="elephant">🐘</span> AI-Powered SQL Analytics (PostgreSQL)</h1>
+        <h1>🐘 AI-Powered SQL Analytics (PostgreSQL)</h1>
         <p>Ask questions in plain English • Enterprise-grade database</p>
     </div>
     """, unsafe_allow_html=True)
@@ -319,8 +334,8 @@ def main():
                     st.caption(f"📅 {stats['min_date']} → {stats['max_date']}")
             else:
                 st.error("Could not load stats")
-        except:
-            st.info("🔄 Connect to Supabase first")
+        except Exception as e:
+            st.info(f"🔄 Connecting to Supabase... {str(e)}")
         
         st.divider()
         
@@ -377,16 +392,26 @@ def main():
                     df, error = execute_sql(sql)
                 
                 if error:
-                    st.error(f"❌ {error}")
+                    st.markdown(f'<div class="error-box">❌ {error}</div>', unsafe_allow_html=True)
                 else:
-                    st.success(f"✅ {len(df)} rows returned")
+                    st.markdown(f'<div class="success-box">✅ Query executed successfully! {len(df)} rows returned</div>', unsafe_allow_html=True)
+                    
+                    st.subheader("📋 Results")
                     st.dataframe(df, use_container_width=True, height=400)
                     
+                    # Auto chart
+                    if len(df) > 0:
+                        chart = auto_generate_chart(df)
+                        if chart:
+                            st.subheader("📊 Visualization")
+                            st.plotly_chart(chart, use_container_width=True)
+                    
+                    # Download CSV
                     csv = df.to_csv(index=False).encode('utf-8')
                     st.download_button(
                         label="📥 Download CSV",
                         data=csv,
-                        file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        file_name=f"query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv"
                     )
             else:
