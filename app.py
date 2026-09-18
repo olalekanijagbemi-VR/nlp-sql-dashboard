@@ -459,6 +459,47 @@ def main():
         model = st.selectbox("AI Model:", SUPPORTED_MODELS, index=0)
         st.divider()
         
+        st.markdown("### 💡 Example Questions")
+        st.markdown("**Simple:**")
+        examples_simple = [
+            "Show top 5 products by revenue",
+            "Show total revenue by region",
+            "Show monthly sales for 2024",
+            "Which customer spent the most money?"
+        ]
+        for ex in examples_simple:
+            if st.button(f"📌 {ex}", key=f"simple_{ex[:15]}"):
+                st.session_state.pending_question = ex
+                st.session_state.auto_submit = True
+                st.rerun()
+        
+        st.markdown("**JOIN Queries:**")
+        examples_join = [
+            "Show customers with their total revenue and segment",
+            "Show products with total sales and supplier information",
+            "Show sales by region with manager name"
+        ]
+        for ex in examples_join:
+            if st.button(f"🔗 {ex}", key=f"join_{ex[:15]}"):
+                st.session_state.pending_question = ex
+                st.session_state.auto_submit = True
+                st.rerun()
+        
+        st.markdown("**Complex:**")
+        examples_complex = [
+            "Show top 3 products by revenue in each region",
+            "Compare revenue by quarter for 2023 vs 2024",
+            "Find customers who spent above average"
+        ]
+        for ex in examples_complex:
+            if st.button(f"⚡ {ex}", key=f"complex_{ex[:15]}"):
+                st.session_state.pending_question = ex
+                st.session_state.auto_submit = True
+                st.rerun()
+    
+        st.divider()
+        st.divider()
+        
         st.markdown("### 📁 Database Overview")
         if db_exists():
             stats = get_table_stats()
@@ -497,8 +538,6 @@ def main():
                 st.caption(f"{q['timestamp']} • {q['rows']} rows" if q['success'] else f"{q['timestamp']} • Error")
         else:
             st.info("No queries yet")
-        st.divider()
-        
         # ==================== MAIN CONTENT ====================
     # ---- ALWAYS-VISIBLE INPUT ----
     if "pending_question" in st.session_state:
@@ -513,46 +552,6 @@ def main():
         height=80,
         key="question_input"
     )
-
-    st.markdown("---")
-    st.markdown("#### 💡 Or try one of these examples:")
-    st.markdown("")
-    st.markdown("### 💡 Example Questions")
-    st.markdown("**Simple:**")
-    examples_simple = [
-        "Show top 5 products by revenue",
-        "Show total revenue by region",
-        "Show monthly sales for 2024",
-        "Which customer spent the most money?"
-    ]
-    for ex in examples_simple:
-        if st.button(f"📌 {ex}", key=f"simple_{ex[:15]}"):
-            st.session_state.pending_question = ex
-            st.session_state.auto_submit = True
-            st.rerun()
-    st.markdown("**JOIN Queries:**")
-    examples_join = [
-        "Show customers with their total revenue and segment",
-        "Show products with total sales and supplier information",
-        "Show sales by region with manager name"
-    ]
-    for ex in examples_join:
-        if st.button(f"🔗 {ex}", key=f"join_{ex[:15]}"):
-            st.session_state.pending_question = ex
-            st.session_state.auto_submit = True
-            st.rerun()
-    st.markdown("**Complex:**")
-    examples_complex = [
-        "Show top 3 products by revenue in each region",
-        "Compare revenue by quarter for 2023 vs 2024",
-        "Find customers who spent above average"
-    ]
-    for ex in examples_complex:
-        if st.button(f"⚡ {ex}", key=f"complex_{ex[:15]}"):
-            st.session_state.pending_question = ex
-            st.session_state.auto_submit = True
-            st.rerun()
-
 
     col1, col2 = st.columns([1, 4])
     with col1:
