@@ -142,7 +142,7 @@ def execute_sql(sql_query):
         return None, str(e)
 
 # ==================== GROQ AI FUNCTIONS ====================
-def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
+def generate_sql(question, schema_info, api_key, model="openai/gpt-oss-20b"):
     if not schema_info:
         return None
     
@@ -316,7 +316,7 @@ def main():
                 st.warning("⚠️ Enter your Groq API key to continue")
                 st.stop()
         
-        model = st.selectbox("AI Model:", ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"], index=0)
+        model = st.selectbox("AI Model:", ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"], index=0)
         st.divider()
         
         st.markdown("### 🐘 PostgreSQL Database")

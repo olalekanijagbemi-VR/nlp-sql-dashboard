@@ -190,7 +190,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==================== CONSTANTS ====================
-SUPPORTED_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"]
+SUPPORTED_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 
 # ==================== DATABASE FUNCTIONS ====================
 def db_exists():
@@ -288,7 +288,7 @@ def execute_sql(sql_query):
         return None, str(e)
 
 # ==================== GROQ AI FUNCTIONS (Using Requests) ====================
-def generate_sql(question, schema_info, api_key, model="llama-3.1-8b-instant"):
+def generate_sql(question, schema_info, api_key, model="openai/gpt-oss-20b"):
     if not schema_info:
         return None
     
