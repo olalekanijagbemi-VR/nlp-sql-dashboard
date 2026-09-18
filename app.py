@@ -509,8 +509,7 @@ def main():
         ]
         for ex in examples_simple:
             if st.button(f"📌 {ex}", key=f"simple_{ex[:15]}"):
-                st.session_state.example_question = ex
-                st.session_state.auto_submit = True
+                st.session_state.pending_question = ex
                 st.rerun()
         
         st.markdown("**JOIN Queries:**")
@@ -521,8 +520,7 @@ def main():
         ]
         for ex in examples_join:
             if st.button(f"🔗 {ex}", key=f"join_{ex[:15]}"):
-                st.session_state.example_question = ex
-                st.session_state.auto_submit = True
+                st.session_state.pending_question = ex
                 st.rerun()
         
         st.markdown("**Complex:**")
@@ -533,95 +531,84 @@ def main():
         ]
         for ex in examples_complex:
             if st.button(f"⚡ {ex}", key=f"complex_{ex[:15]}"):
-                st.session_state.example_question = ex
-                st.session_state.auto_submit = True
+                st.session_state.pending_question = ex
                 st.rerun()
     
-    # ==================== MAIN CONTENT ====================
-    if 'reuse_question' in st.session_state:
-        question = st.session_state.reuse_question
-        del st.session_state.reuse_question
-    elif 'example_question' in st.session_state:
-        question = st.session_state.example_question
-        del st.session_state.example_question
+        # ==================== MAIN CONTENT ====================
+    st.markdown("""
+    <div class="main-header">
+        <h1>📊 AI-Powered SQL Analytics</h1>
+        <p>Ask questions in plain English • Get instant insights with charts</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ---- ALWAYS-VISIBLE INPUT ----
+    if "pending_question" in st.session_state:
+        default_val = st.session_state.pending_question
     else:
-        question = st.text_area(
-            "💬 Ask your question in plain English:",
-            placeholder="Example: Show me the top 10 products by revenue for Q4 2024",
-            height=80,
-            key="question_input"
-        )
-    
-    # ==================== SUBMIT LOGIC ====================
-    auto_submit = st.session_state.get('auto_submit', False)
-    
+        default_val = ""
+
+    question = st.text_area(
+        "💬 Ask your question in plain English:",
+        value=default_val,
+        placeholder="Example: Show me the top 10 products by revenue for Q4 2024",
+        height=80,
+        key="question_input"
+    )
+
     col1, col2 = st.columns([1, 4])
     with col1:
         submit = st.button("🚀 Generate", type="primary", use_container_width=True)
-    
-    if auto_submit:
-        submit = True
-        st.session_state.auto_submit = False
-    
-    # ==================== PROCESS QUERY ====================
+
+    # Clear the pending question marker after we use it
+    if "pending_question" in st.session_state:
+        del st.session_state.pending_question
+
+    # ---- PROCESS QUERY ----
     if submit and question:
         with st.spinner("🤔 Analyzing and generating SQL..."):
             schema_info = get_table_schema()
             if not schema_info:
                 st.error("Could not load database schema")
-                return
-            
-            sql = generate_sql(question, schema_info, api_key, model)
-            
-            if sql:
-                with st.expander("🔍 View Generated SQL", expanded=True):
-                    st.code(sql, language='sql')
-                
-                with st.spinner("⚡ Executing query..."):
-                    df, error = execute_sql(sql)
-                
-                if error:
-                    st.markdown(f'<div class="error-box">❌ {error}</div>', unsafe_allow_html=True)
-                    save_to_history(question, sql, False, error=error)
-                else:
-                    st.markdown(f'<div class="success-box">✅ Query executed successfully! {len(df)} rows returned</div>', unsafe_allow_html=True)
-                    save_to_history(question, sql, True, len(df))
-                    
-                    st.subheader("📋 Results")
-                    st.dataframe(df, use_container_width=True, height=400)
-                    
-                    if len(df) > 0:
-                        st.subheader("📊 Visualizations")
-                        fig = auto_generate_chart(df, sql)
-                        if fig:
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.info("ℹ️ Data format not suitable for automatic charting")
-                    
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download CSV",
-                        data=csv,
-                        file_name=f"query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
             else:
-                st.error("Failed to generate SQL. Please rephrase your question.")
-    
+                sql = generate_sql(question, schema_info, api_key, model)
+                if sql:
+                    with st.expander("🔍 View Generated SQL", expanded=True):
+                        st.code(sql, language="sql")
+                    with st.spinner("⚡ Executing query..."):
+                        df, error = execute_sql(sql)
+                    if error:
+                        st.error(f"❌ {error}")
+                    else:
+                        st.success(f"✅ {len(df)} rows returned")
+                        st.subheader("📋 Results")
+                        st.dataframe(df, use_container_width=True, height=400)
+
+                        # Auto chart
+                        if len(df) > 0:
+                            numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns.tolist()
+                            categorical_cols = df.select_dtypes(include=["object", "datetime64"]).columns.tolist()
+                            if numeric_cols and categorical_cols:
+                                try:
+                                    fig = px.bar(df, x=categorical_cols[0], y=numeric_cols[0],
+                                                 title=f"{numeric_cols[0]} by {categorical_cols[0]}",
+                                                 template="plotly_white")
+                                    st.plotly_chart(fig, use_container_width=True)
+                                except Exception:
+                                    pass
+
+                        csv = df.to_csv(index=False).encode("utf-8")
+                        st.download_button(
+                            "📥 Download CSV",
+                            csv,
+                            f"query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv"
+                        )
+                else:
+                    st.error("Failed to generate SQL")
     elif submit and not question:
         st.warning("⚠️ Please enter a question first")
-    
-    # ==================== DATABASE SCHEMA REFERENCE ====================
-    with st.expander("📖 Database Schema Reference", expanded=False):
-        schema_info = get_table_schema()
-        if schema_info:
-            for table_name, info in schema_info.items():
-                st.markdown(f"**Table: `{table_name}`** ({info['row_count']:,} rows)")
-                col_names = [f"`{col['name']}` ({col['type']})" for col in info['columns']]
-                st.write(" | ".join(col_names))
-                if info['sample']:
-                    st.caption(f"Sample: {info['sample'][0]}")
-                st.divider()
+
 
 if __name__ == "__main__":
     main()
