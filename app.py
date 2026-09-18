@@ -22,20 +22,20 @@ st.set_page_config(
 # ==================== POSTGRESQL CONNECTION ====================
 def get_db_connection():
     """Create PostgreSQL connection using secrets or env"""
+    # Prefer Streamlit secrets (Cloud + local .streamlit/secrets.toml)
     try:
-        # For Streamlit Cloud
-        conn = psycopg2.connect(st.secrets["DATABASE_URL"])
-        return conn
-    except:
-        # For local testing
-        conn = psycopg2.connect(
-            host="db.sopxwbreracachgzvlcl.supabase.co",
-            port="5432",
-            database="postgres",
-            user="postgres",
-            password="Postgres101"
-        )
-        return conn
+        return psycopg2.connect(st.secrets["DATABASE_URL"])
+    except Exception:
+        pass
+    # Fallback to environment variable (local dev)
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        return psycopg2.connect(db_url)
+    # No credentials found — raise a clear error
+    raise RuntimeError(
+        "DATABASE_URL not found. Add it to Streamlit Cloud Secrets "
+        "or export DATABASE_URL in your shell."
+    )
 
 @st.cache_data(ttl=300)
 def get_table_schema():
