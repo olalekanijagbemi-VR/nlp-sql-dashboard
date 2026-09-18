@@ -510,6 +510,7 @@ def main():
         for ex in examples_simple:
             if st.button(f"📌 {ex}", key=f"simple_{ex[:15]}"):
                 st.session_state.pending_question = ex
+                st.session_state.auto_submit = True
                 st.rerun()
         
         st.markdown("**JOIN Queries:**")
@@ -521,6 +522,7 @@ def main():
         for ex in examples_join:
             if st.button(f"🔗 {ex}", key=f"join_{ex[:15]}"):
                 st.session_state.pending_question = ex
+                st.session_state.auto_submit = True
                 st.rerun()
         
         st.markdown("**Complex:**")
@@ -532,16 +534,10 @@ def main():
         for ex in examples_complex:
             if st.button(f"⚡ {ex}", key=f"complex_{ex[:15]}"):
                 st.session_state.pending_question = ex
+                st.session_state.auto_submit = True
                 st.rerun()
     
         # ==================== MAIN CONTENT ====================
-    st.markdown("""
-    <div class="main-header">
-        <h1>📊 AI-Powered SQL Analytics</h1>
-        <p>Ask questions in plain English • Get instant insights with charts</p>
-    </div>
-    """, unsafe_allow_html=True)
-
     # ---- ALWAYS-VISIBLE INPUT ----
     if "pending_question" in st.session_state:
         default_val = st.session_state.pending_question
@@ -560,7 +556,12 @@ def main():
     with col1:
         submit = st.button("🚀 Generate", type="primary", use_container_width=True)
 
-    # Clear the pending question marker after we use it
+    # Auto-trigger from example click
+    if st.session_state.get("auto_submit"):
+        submit = True
+        st.session_state.auto_submit = False
+
+    # Clear pending question marker (used to fill the input)
     if "pending_question" in st.session_state:
         del st.session_state.pending_question
 
