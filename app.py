@@ -1,132 +1,278 @@
 """
-PostgreSQL Version - AI-Powered SQL Analytics Dashboard
-Updated for Supabase with sale_date column
+Professional NLP to SQL Analytics Dashboard
+Full features: Charts, Query History, Multiple Tables, Auto-Execute Examples
 """
 
 import streamlit as st
+import sqlite3
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import requests
 import re
 import os
-import psycopg2
+import numpy as np
 from datetime import datetime
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
-    page_title="AI SQL Analytics Dashboard (PostgreSQL)",
-    page_icon="🐘",
-    layout="wide"
+    page_title="AI SQL Analytics Dashboard",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ==================== POSTGRESQL CONNECTION ====================
-def get_db_connection():
-    """Create PostgreSQL connection using secrets or env"""
-    # Prefer Streamlit secrets (Cloud + local .streamlit/secrets.toml)
-    try:
-        return psycopg2.connect(st.secrets["DATABASE_URL"])
-    except Exception:
-        pass
-    # Fallback to environment variable (local dev)
-    db_url = os.environ.get("DATABASE_URL")
-    if db_url:
-        return psycopg2.connect(db_url)
-    # No credentials found — raise a clear error
-    raise RuntimeError(
-        "DATABASE_URL not found. Add it to Streamlit Cloud Secrets "
-        "or export DATABASE_URL in your shell."
-    )
+# ==================== AUTO-CREATE DATABASE (ALL 4 TABLES) ====================
+DB_PATH = "sales.db"
+
+def create_database_if_missing():
+    """Create database with ALL tables if it doesn't exist"""
+    if os.path.exists(DB_PATH):
+        return True
+    
+    with st.spinner("📦 Creating database with 4 tables (10,000+ rows)..."):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            
+            # ============================================
+            # 1. PRODUCTS TABLE
+            # ============================================
+            products_data = [
+                {"product_id": 1, "product_name": "Laptop", "category": "Electronics", "supplier": "TechCorp", "cost": 600},
+                {"product_id": 2, "product_name": "Phone", "category": "Electronics", "supplier": "MobileInc", "cost": 400},
+                {"product_id": 3, "product_name": "Tablet", "category": "Electronics", "supplier": "TechCorp", "cost": 250},
+                {"product_id": 4, "product_name": "Headphones", "category": "Accessories", "supplier": "SoundCo", "cost": 40},
+                {"product_id": 5, "product_name": "Monitor", "category": "Electronics", "supplier": "DisplayPro", "cost": 120},
+                {"product_id": 6, "product_name": "Keyboard", "category": "Accessories", "supplier": "TypeMaster", "cost": 25},
+                {"product_id": 7, "product_name": "Mouse", "category": "Accessories", "supplier": "ClickTech", "cost": 15},
+                {"product_id": 8, "product_name": "Desk Chair", "category": "Furniture", "supplier": "ComfortZone", "cost": 120},
+                {"product_id": 9, "product_name": "Webcam", "category": "Accessories", "supplier": "VisionPro", "cost": 35},
+                {"product_id": 10, "product_name": "USB Cable", "category": "Accessories", "supplier": "CableMasters", "cost": 5}
+            ]
+            products_df = pd.DataFrame(products_data)
+            products_df.to_sql("products", conn, if_exists="replace", index=False)
+            
+            # ============================================
+            # 2. CUSTOMERS TABLE
+            # ============================================
+            customers_data = []
+            cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", 
+                     "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose"]
+            states = ["CA", "NY", "TX", "FL", "IL", "PA", "OH", "GA", "NC", "MI"]
+            segments = ["Premium", "Gold", "Silver", "Bronze"]
+            segment_weights = [0.1, 0.2, 0.3, 0.4]
+            
+            for i in range(1, 101):
+                join_date = pd.date_range("2020-01-01", "2023-12-31")[np.random.randint(0, 1461)]
+                customers_data.append({
+                    "customer_id": i,
+                    "customer_name": f"Customer_{i}",
+                    "email": f"customer{i}@email.com",
+                    "city": np.random.choice(cities),
+                    "state": np.random.choice(states),
+                    "join_date": join_date.strftime("%Y-%m-%d"),
+                    "customer_segment": np.random.choice(segments, p=segment_weights)
+                })
+            customers_df = pd.DataFrame(customers_data)
+            customers_df.to_sql("customers", conn, if_exists="replace", index=False)
+            
+            # ============================================
+            # 3. REGIONS TABLE
+            # ============================================
+            regions_data = [
+                {"region_id": 1, "region_name": "North", "manager": "Alice Johnson", "office": "Boston"},
+                {"region_id": 2, "region_name": "South", "manager": "Bob Smith", "office": "Atlanta"},
+                {"region_id": 3, "region_name": "East", "manager": "Carol Davis", "office": "New York"},
+                {"region_id": 4, "region_name": "West", "manager": "Dave Wilson", "office": "San Francisco"},
+                {"region_id": 5, "region_name": "Central", "manager": "Eve Brown", "office": "Chicago"}
+            ]
+            regions_df = pd.DataFrame(regions_data)
+            regions_df.to_sql("regions", conn, if_exists="replace", index=False)
+            
+            # ============================================
+            # 4. SALES TABLE (10,000 rows)
+            # ============================================
+            product_names = ["Laptop", "Phone", "Tablet", "Headphones", "Monitor", 
+                           "Keyboard", "Mouse", "Desk Chair", "Webcam", "USB Cable"]
+            customer_names = [f"Customer_{i}" for i in range(1, 101)]
+            region_names = ["North", "South", "East", "West", "Central"]
+            dates = pd.date_range("2023-01-01", "2024-12-31")
+            
+            product_categories = {
+                "Laptop": "Electronics", "Phone": "Electronics", "Tablet": "Electronics",
+                "Headphones": "Accessories", "Monitor": "Electronics", "Keyboard": "Accessories",
+                "Mouse": "Accessories", "Desk Chair": "Furniture", "Webcam": "Accessories",
+                "USB Cable": "Accessories"
+            }
+            
+            np.random.seed(42)
+            data = []
+            
+            for transaction_id in range(10000):
+                product = np.random.choice(product_names)
+                price = np.random.randint(50, 2000)
+                quantity = np.random.randint(1, 11)
+                revenue = price * quantity
+                random_date = dates[np.random.randint(0, len(dates))]
+                
+                data.append({
+                    "transaction_id": transaction_id + 1,
+                    "date": random_date.strftime("%Y-%m-%d"),
+                    "customer": np.random.choice(customer_names),
+                    "region": np.random.choice(region_names),
+                    "product": product,
+                    "category": product_categories[product],
+                    "quantity": quantity,
+                    "price": price,
+                    "revenue": revenue
+                })
+            
+            sales_df = pd.DataFrame(data)
+            sales_df["date"] = pd.to_datetime(sales_df["date"])
+            sales_df["month"] = sales_df["date"].dt.month
+            sales_df["year"] = sales_df["date"].dt.year
+            sales_df["quarter"] = sales_df["date"].dt.quarter
+            
+            sales_df.to_sql("sales", conn, if_exists="replace", index=False)
+            conn.close()
+            
+            st.success("✅ Database created with 4 tables (10,000+ rows)!")
+            return True
+            
+        except Exception as e:
+            st.error(f"Database creation failed: {str(e)}")
+            return False
+
+# Check and create database
+if not os.path.exists(DB_PATH):
+    if create_database_if_missing():
+        st.rerun()
+    else:
+        st.stop()
+
+# ==================== CUSTOM CSS ====================
+st.markdown("""
+<style>
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    .main-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    .main-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+    .success-box {
+        padding: 1rem;
+        background: #d4edda;
+        color: #155724;
+        border-radius: 8px;
+        border: 1px solid #c3e6cb;
+        margin: 1rem 0;
+    }
+    .error-box {
+        padding: 1rem;
+        background: #f8d7da;
+        color: #721c24;
+        border-radius: 8px;
+        border: 1px solid #f5c6cb;
+        margin: 1rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ==================== CONSTANTS ====================
+SUPPORTED_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+
+# ==================== DATABASE FUNCTIONS ====================
+def db_exists():
+    return os.path.exists(DB_PATH)
 
 @st.cache_data(ttl=300)
 def get_table_schema():
-    """Get schema from PostgreSQL"""
-    conn = get_db_connection()
+    if not db_exists():
+        return None
+    
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     try:
-        # Get all tables
-        cursor.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-        """)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = [t[0] for t in cursor.fetchall()]
         
         schema_info = {}
         for table in tables:
-            # Get columns
-            cursor.execute(f"""
-                SELECT column_name, data_type 
-                FROM information_schema.columns 
-                WHERE table_name = '{table}'
-            """)
+            cursor.execute(f"PRAGMA table_info({table})")
             columns = cursor.fetchall()
-            
-            # Get row count
             cursor.execute(f"SELECT COUNT(*) FROM {table}")
             row_count = cursor.fetchone()[0]
-            
-            # Get sample
-            cursor.execute(f"SELECT * FROM {table} LIMIT 3")
-            sample = cursor.fetchall()
-            if sample:
-                colnames = [desc[0] for desc in cursor.description]
-                sample_dict = [dict(zip(colnames, row)) for row in sample]
-            else:
-                sample_dict = []
+            sample_df = pd.read_sql_query(f"SELECT * FROM {table} LIMIT 3", conn)
             
             schema_info[table] = {
-                "columns": [{"name": c[0], "type": c[1]} for c in columns],
+                "columns": [{"name": col[1], "type": col[2]} for col in columns],
                 "row_count": row_count,
-                "sample": sample_dict
+                "sample": sample_df.to_dict('records')
             }
         
-        conn.close()
         return schema_info
     except Exception as e:
-        conn.close()
         return None
+    finally:
+        conn.close()
 
 @st.cache_data(ttl=60)
 def get_table_stats():
-    """Get database stats from PostgreSQL"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    if not db_exists():
+        return None
     
+    conn = sqlite3.connect(DB_PATH)
     try:
         stats = {}
-        cursor.execute("SELECT COALESCE(SUM(revenue), 0) as total FROM sales")
-        stats['total_revenue'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM sales")
-        stats['total_transactions'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(DISTINCT customer) FROM sales")
-        stats['unique_customers'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(DISTINCT product) FROM sales")
-        stats['unique_products'] = cursor.fetchone()[0]
-        
-        # FIXED: Use sale_date instead of date
-        cursor.execute("SELECT MIN(sale_date), MAX(sale_date) FROM sales")
-        min_date, max_date = cursor.fetchone()
-        stats['min_date'] = min_date
-        stats['max_date'] = max_date
-        
-        conn.close()
+        revenue_df = pd.read_sql_query("SELECT SUM(revenue) as total FROM sales", conn)
+        stats['total_revenue'] = revenue_df['total'].iloc[0] if not revenue_df.empty else 0
+        count_df = pd.read_sql_query("SELECT COUNT(*) as count FROM sales", conn)
+        stats['total_transactions'] = count_df['count'].iloc[0] if not count_df.empty else 0
+        cust_df = pd.read_sql_query("SELECT COUNT(DISTINCT customer) as count FROM sales", conn)
+        stats['unique_customers'] = cust_df['count'].iloc[0] if not cust_df.empty else 0
+        prod_df = pd.read_sql_query("SELECT COUNT(DISTINCT product) as count FROM sales", conn)
+        stats['unique_products'] = prod_df['count'].iloc[0] if not prod_df.empty else 0
+        date_df = pd.read_sql_query("SELECT MIN(date) as min_date, MAX(date) as max_date FROM sales", conn)
+        stats['min_date'] = date_df['min_date'].iloc[0] if not date_df.empty else None
+        stats['max_date'] = date_df['max_date'].iloc[0] if not date_df.empty else None
         return stats
     except Exception as e:
-        conn.close()
         return None
+    finally:
+        conn.close()
 
 def execute_sql(sql_query):
-    """Execute SQL query on PostgreSQL"""
-    if not sql_query:
-        return None, "No query provided"
+    if not db_exists():
+        return None, "Database not found"
     
     try:
-        # Clean SQL
+        # Clean SQL - remove multiple statements
         sql_query = sql_query.strip()
+        
+        # Split by newlines and filter out empty lines
+        lines = sql_query.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('--'):
+                cleaned_lines.append(line)
+        
+        # Join back together
+        sql_query = ' '.join(cleaned_lines)
+        
+        # Remove any semicolons
         sql_query = re.sub(r';+$', '', sql_query)
         
         # Security check
@@ -134,14 +280,14 @@ def execute_sql(sql_query):
         if any(k in sql_query.lower() for k in dangerous):
             return None, f"⚠️ Security: {dangerous} operations are not allowed"
         
-        conn = get_db_connection()
-        result_df = pd.read_sql_query(sql_query, conn)
+        conn = sqlite3.connect(DB_PATH)
+        result = pd.read_sql_query(sql_query, conn)
         conn.close()
-        return result_df, None
+        return result, None
     except Exception as e:
         return None, str(e)
 
-# ==================== GROQ AI FUNCTIONS ====================
+# ==================== GROQ AI FUNCTIONS (Using Requests) ====================
 def generate_sql(question, schema_info, api_key, model="openai/gpt-oss-20b"):
     if not schema_info:
         return None
@@ -160,7 +306,7 @@ RELATIONSHIPS:
 - sales.region -> regions.region_name (JOIN on region = region_name)
 """
     
-    prompt = f"""Convert to PostgreSQL SQL.
+    prompt = f"""Convert to a SINGLE SQLite SQL query.
 
 DATABASE SCHEMA:
 {schema_text}
@@ -171,9 +317,9 @@ CRITICAL RULES:
 1. Return ONLY ONE SQL query - absolutely NO multiple statements
 2. Do NOT include any explanations, comments, or extra text
 3. Do NOT include semicolons
-4. Use PostgreSQL syntax
-5. For aggregation queries, do NOT add LIMIT
-6. For non-aggregation queries, add LIMIT 100
+4. For aggregation queries (SUM, COUNT, AVG, GROUP BY), do NOT add LIMIT
+5. For non-aggregation queries, add LIMIT 100
+6. Use JOINs when the question references multiple tables
 
 Question: {question}
 
@@ -188,7 +334,7 @@ SQL:"""
         payload = {
             "model": model,
             "messages": [
-                {"role": "system", "content": "You are a PostgreSQL expert. Return ONLY ONE SQL query."},
+                {"role": "system", "content": "You are an SQL expert. Return ONLY ONE SQL query. No explanations."},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.1,
@@ -201,13 +347,21 @@ SQL:"""
             result = response.json()
             sql_query = result['choices'][0]['message']['content'].strip()
             
+            # Remove markdown code blocks
             sql_query = re.sub(r'```sql\n?', '', sql_query)
             sql_query = re.sub(r'```\n?', '', sql_query)
+            
+            # Remove comments
             sql_query = re.sub(r'--.*?(\n|$)', '\n', sql_query)
             sql_query = re.sub(r'/\*.*?\*/', '', sql_query, flags=re.DOTALL)
+            
+            # Remove semicolons
             sql_query = sql_query.rstrip(';')
+            
+            # Clean up whitespace
             sql_query = ' '.join(sql_query.split())
             
+            # Check if aggregation
             sql_lower = sql_query.lower()
             is_aggregation = any(word in sql_lower for word in ['count(', 'sum(', 'avg(', 'group by', 'max(', 'min('])
             if not is_aggregation and 'limit' not in sql_lower:
@@ -222,6 +376,49 @@ SQL:"""
         st.error(f"Groq API error: {str(e)}")
         return None
 
+# ==================== CHART FUNCTIONS ====================
+def auto_generate_chart(df, sql_query):
+    if df.empty or len(df) < 2:
+        return None
+    
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+    categorical_cols = df.select_dtypes(include=['object', 'datetime64']).columns.tolist()
+    date_cols = [col for col in df.columns if any(word in col.lower() for word in ['date', 'month', 'year', 'quarter'])]
+    
+    if not numeric_cols:
+        return None
+    
+    if date_cols and numeric_cols:
+        fig = px.line(df, x=date_cols[0], y=numeric_cols[0], 
+                      title=f"Trend Over Time ({numeric_cols[0]})", 
+                      markers=True, template="plotly_white")
+        return fig
+    elif categorical_cols and numeric_cols:
+        x_col = categorical_cols[0]
+        y_col = numeric_cols[0]
+        if len(numeric_cols) > 1:
+            fig = px.bar(df, x=x_col, y=numeric_cols, 
+                        title=f"{x_col} vs {', '.join(numeric_cols[:2])}",
+                        barmode='group', template="plotly_white")
+        else:
+            fig = px.bar(df, x=x_col, y=y_col,
+                        title=f"{y_col} by {x_col}",
+                        text_auto=True, template="plotly_white",
+                        color=x_col if len(df) <= 20 else None)
+        return fig
+    elif len(numeric_cols) >= 2:
+        fig = px.scatter(df, x=numeric_cols[0], y=numeric_cols[1],
+                        title=f"{numeric_cols[0]} vs {numeric_cols[1]}",
+                        trendline="ols", template="plotly_white")
+        return fig
+    elif len(df) <= 15 and categorical_cols and numeric_cols:
+        fig = px.pie(df, values=numeric_cols[0], names=categorical_cols[0],
+                    title=f"Distribution of {numeric_cols[0]}",
+                    hole=0.3, template="plotly_white")
+        return fig
+    return None
+
+# ==================== QUERY HISTORY ====================
 def save_to_history(question, sql, success, row_count=None, error=None):
     if 'query_history' not in st.session_state:
         st.session_state.query_history = []
@@ -237,215 +434,114 @@ def save_to_history(question, sql, success, row_count=None, error=None):
     })
     st.session_state.query_history = st.session_state.query_history[:20]
 
-# ==================== AUTO-GENERATE CHART ====================
-def auto_generate_chart(df):
-    if df.empty or len(df) < 2:
-        return None
-    
-    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-    categorical_cols = df.select_dtypes(include=['object', 'datetime64']).columns.tolist()
-    
-    if not numeric_cols:
-        return None
-    
-    if categorical_cols and numeric_cols:
-        fig = px.bar(df, x=categorical_cols[0], y=numeric_cols[0],
-                    title=f"{numeric_cols[0]} by {categorical_cols[0]}",
-                    text_auto=True, template="plotly_white")
-        return fig
-    return None
-
 # ==================== MAIN APP ====================
-@st.fragment
-def render_query_results(question, api_key, model):
-    """Query results wrapped in a fragment so session reconnects don't wipe them."""
-    if not question:
-        st.warning("⚠️ Please enter a question first")
-        return
-
-    with st.spinner("🤔 Analyzing and generating SQL..."):
-        schema_info = get_table_schema()
-        if not schema_info:
-            st.error("Could not load database schema")
-            return
-
-        sql = generate_sql(question, schema_info, api_key, model)
-
-        if sql:
-            with st.expander("🔍 View Generated SQL", expanded=True):
-                st.code(sql, language="sql")
-
-            with st.spinner("⚡ Executing query..."):
-                df, error = execute_sql(sql)
-
-            if error:
-                st.markdown(f"<div class=\"error-box\">❌ {error}</div>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div class=\"success-box\">✅ Query executed successfully! {len(df)} rows returned</div>", unsafe_allow_html=True)
-                st.session_state.last_result = df
-                st.session_state.last_sql = sql
-                st.session_state.last_question = question
-
-                st.subheader("📋 Results")
-                st.dataframe(df, use_container_width=True, height=400)
-
-                if len(df) > 0:
-                    chart = auto_generate_chart(df)
-                    if chart:
-                        st.subheader("📊 Visualization")
-                        st.plotly_chart(chart, use_container_width=True)
-
-                csv = df.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    label="📥 Download CSV",
-                    data=csv,
-                    file_name=f"query_results_{datetime.now().strftime(chr(37)+chr(89)+chr(109)+chr(100)+chr(95)+chr(37)+chr(72)+chr(37)+chr(77)+chr(37)+chr(83))}.csv",
-                    mime="text/csv"
-                )
-        else:
-            st.error("Failed to generate SQL")
 def main():
     st.markdown("""
-    <style>
-        .main-header {
-            background: linear-gradient(135deg, #336791 0%, #0064a5 100%);
-            padding: 1.5rem;
-            border-radius: 10px;
-            color: white;
-            margin-bottom: 1rem;
-        }
-        .main-header h1 { margin: 0; font-size: 2.5rem; font-weight: 700; }
-        .main-header p { margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem; }
-        .success-box {
-            padding: 1rem; background: #d4edda; color: #155724;
-            border-radius: 8px; border: 1px solid #c3e6cb; margin: 1rem 0;
-        }
-        .error-box {
-            padding: 1rem; background: #f8d7da; color: #721c24;
-            border-radius: 8px; border: 1px solid #f5c6cb; margin: 1rem 0;
-        }
-        .metric-card {
-            background: #ffffff;
-            padding: 1rem;
-            border-radius: 10px;
-            border-left: 4px solid #336791;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            text-align: center;
-        }
-    </style>
+    <div class="main-header">
+        <h1>📊 AI-Powered SQL Analytics</h1>
+        <p>Ask questions in plain English • Get instant insights with charts</p>
+    </div>
     """, unsafe_allow_html=True)
-
-    # ==================== DEBUG (temporary) ====================
-    try:
-        _keys = list(st.secrets.keys())
-        st.warning(f"DEBUG: secrets keys = {_keys}")
-        st.warning(f"DEBUG: has DATABASE_URL = {'DATABASE_URL' in st.secrets}")
-    except Exception as _e:
-        st.warning(f"DEBUG: secrets unavailable: {_e}")
-
+    
     # ==================== SIDEBAR ====================
     with st.sidebar:
-        # ---- EXAMPLE QUESTIONS FIRST (easy visibility) ----
-        st.markdown("### 💡 Try These Questions")
-
+        st.markdown("### 🔑 Configuration")
+        
+        try:
+            api_key = st.secrets["GROQ_API_KEY"]
+            st.success("✅ API Key loaded from secrets")
+        except:
+            api_key = st.text_input("Groq API Key:", type="password", key="api_key")
+            if not api_key:
+                st.warning("⚠️ Enter your Groq API key to continue")
+                st.stop()
+        
+        model = st.selectbox("AI Model:", SUPPORTED_MODELS, index=0)
+        st.divider()
+        
+        st.markdown("### 📁 Database Overview")
+        if db_exists():
+            stats = get_table_stats()
+            if stats:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("💰 Revenue", f"${stats['total_revenue']:,.0f}")
+                    st.metric("📦 Products", stats['unique_products'])
+                with col2:
+                    st.metric("🧾 Transactions", f"{stats['total_transactions']:,}")
+                    st.metric("👥 Customers", stats['unique_customers'])
+                if stats['min_date'] and stats['max_date']:
+                    st.caption(f"📅 {stats['min_date']} → {stats['max_date']}")
+            else:
+                st.error("Could not load stats")
+        else:
+            st.error("❌ Database not found")
+            st.stop()
+        st.divider()
+        
+        st.markdown("### 📊 Tables Available")
+        schema_info = get_table_schema()
+        if schema_info:
+            for table_name, info in schema_info.items():
+                st.caption(f"• {table_name}: {info['row_count']:,} rows")
+        st.divider()
+        
+        st.markdown("### 📜 Query History")
+        if 'query_history' in st.session_state and st.session_state.query_history:
+            for i, q in enumerate(st.session_state.query_history[:7]):
+                icon = "✅" if q['success'] else "❌"
+                if st.button(f"{icon} {q['question'][:35]}...", key=f"hist_{i}"):
+                    st.session_state.reuse_question = q['question']
+                    st.session_state.auto_submit = True
+                    st.rerun()
+                st.caption(f"{q['timestamp']} • {q['rows']} rows" if q['success'] else f"{q['timestamp']} • Error")
+        else:
+            st.info("No queries yet")
+        st.divider()
+        
+        st.markdown("### 💡 Example Questions")
         st.markdown("**Simple:**")
         examples_simple = [
             "Show top 5 products by revenue",
             "Show total revenue by region",
             "Show monthly sales for 2024",
-            "Which customer spent the most money?",
+            "Which customer spent the most money?"
         ]
         for ex in examples_simple:
-            if st.button(f"📌 {ex}", key=f"s_{ex}"):
+            if st.button(f"📌 {ex}", key=f"simple_{ex[:15]}"):
                 st.session_state.example_question = ex
                 st.session_state.auto_submit = True
                 st.rerun()
-
+        
         st.markdown("**JOIN Queries:**")
         examples_join = [
             "Show customers with their total revenue and segment",
-            "Show products with total sales and supplier info",
-            "Show sales by region with manager name",
+            "Show products with total sales and supplier information",
+            "Show sales by region with manager name"
         ]
         for ex in examples_join:
-            if st.button(f"🔗 {ex}", key=f"j_{ex}"):
+            if st.button(f"🔗 {ex}", key=f"join_{ex[:15]}"):
                 st.session_state.example_question = ex
                 st.session_state.auto_submit = True
                 st.rerun()
-
+        
         st.markdown("**Complex:**")
         examples_complex = [
             "Show top 3 products by revenue in each region",
             "Compare revenue by quarter for 2023 vs 2024",
-            "Find customers who spent above average",
+            "Find customers who spent above average"
         ]
         for ex in examples_complex:
-            if st.button(f"⚡ {ex}", key=f"c_{ex}"):
+            if st.button(f"⚡ {ex}", key=f"complex_{ex[:15]}"):
                 st.session_state.example_question = ex
                 st.session_state.auto_submit = True
                 st.rerun()
-
-        st.divider()
-
-        # ---- CONFIG ----
-        st.markdown("### 🔑 Configuration")
-        try:
-            api_key = st.secrets["GROQ_API_KEY"]
-            st.success("✅ API Key loaded")
-        except Exception:
-            api_key = st.text_input("Groq API Key:", type="password", key="api_key")
-            if not api_key:
-                st.warning("⚠️ Enter your Groq API key")
-                st.stop()
-
-        model = st.selectbox(
-            "AI Model:",
-            ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
-            index=0,
-        )
-
-    # ==================== MAIN AREA ====================
-    st.markdown("""
-    <div class="main-header">
-        <h1>🐘 AI-Powered SQL Analytics</h1>
-        <p>Ask questions in plain English • Enterprise-grade PostgreSQL</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ---- DATABASE OVERVIEW CARD (in main area) ----
-    try:
-        stats = get_table_stats()
-        if stats:
-            c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">💰 REVENUE</div><div style="font-size:1.4rem;font-weight:700;">${stats["total_revenue"]:,.0f}</div></div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">🧾 TRANSACTIONS</div><div style="font-size:1.4rem;font-weight:700;">{stats["total_transactions"]:,}</div></div>', unsafe_allow_html=True)
-            with c3:
-                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">👥 CUSTOMERS</div><div style="font-size:1.4rem;font-weight:700;">{stats["unique_customers"]}</div></div>', unsafe_allow_html=True)
-            with c4:
-                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">📦 PRODUCTS</div><div style="font-size:1.4rem;font-weight:700;">{stats["unique_products"]}</div></div>', unsafe_allow_html=True)
-    except Exception as e:
-        st.info(f"Connecting to Supabase... {e}")
-
-    st.markdown("")
-
-    # ---- PERSISTENT RESULT FROM PREVIOUS QUERY (survives reconnect) ----
-    if (
-        "last_result" in st.session_state
-        and st.session_state.last_result is not None
-        and not st.session_state.get("auto_submit", False)
-    ):
-        st.subheader("📋 Last Query Results")
-        st.caption(f"Query: {st.session_state.get('last_question', '')}")
-        if "last_sql" in st.session_state:
-            with st.expander("🔍 View SQL", expanded=False):
-                st.code(st.session_state.last_sql, language="sql")
-        st.dataframe(st.session_state.last_result, use_container_width=True, height=400)
-        st.markdown("---")
-
-    # ---- INPUT + SUBMIT ----
-    if "example_question" in st.session_state:
+    
+    # ==================== MAIN CONTENT ====================
+    if 'reuse_question' in st.session_state:
+        question = st.session_state.reuse_question
+        del st.session_state.reuse_question
+    elif 'example_question' in st.session_state:
         question = st.session_state.example_question
         del st.session_state.example_question
     else:
@@ -453,22 +549,79 @@ def main():
             "💬 Ask your question in plain English:",
             placeholder="Example: Show me the top 10 products by revenue for Q4 2024",
             height=80,
-            key="question_input",
+            key="question_input"
         )
-
-    auto_submit = st.session_state.get("auto_submit", False)
-    submit = st.button("🚀 Generate", type="primary", use_container_width=False)
-
+    
+    # ==================== SUBMIT LOGIC ====================
+    auto_submit = st.session_state.get('auto_submit', False)
+    
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        submit = st.button("🚀 Generate", type="primary", use_container_width=True)
+    
     if auto_submit:
         submit = True
         st.session_state.auto_submit = False
-
-    # ---- RUN QUERY ----
+    
+    # ==================== PROCESS QUERY ====================
     if submit and question:
-        render_query_results(question, api_key, model)
+        with st.spinner("🤔 Analyzing and generating SQL..."):
+            schema_info = get_table_schema()
+            if not schema_info:
+                st.error("Could not load database schema")
+                return
+            
+            sql = generate_sql(question, schema_info, api_key, model)
+            
+            if sql:
+                with st.expander("🔍 View Generated SQL", expanded=True):
+                    st.code(sql, language='sql')
+                
+                with st.spinner("⚡ Executing query..."):
+                    df, error = execute_sql(sql)
+                
+                if error:
+                    st.markdown(f'<div class="error-box">❌ {error}</div>', unsafe_allow_html=True)
+                    save_to_history(question, sql, False, error=error)
+                else:
+                    st.markdown(f'<div class="success-box">✅ Query executed successfully! {len(df)} rows returned</div>', unsafe_allow_html=True)
+                    save_to_history(question, sql, True, len(df))
+                    
+                    st.subheader("📋 Results")
+                    st.dataframe(df, use_container_width=True, height=400)
+                    
+                    if len(df) > 0:
+                        st.subheader("📊 Visualizations")
+                        fig = auto_generate_chart(df, sql)
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.info("ℹ️ Data format not suitable for automatic charting")
+                    
+                    csv = df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Download CSV",
+                        data=csv,
+                        file_name=f"query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+            else:
+                st.error("Failed to generate SQL. Please rephrase your question.")
+    
     elif submit and not question:
         st.warning("⚠️ Please enter a question first")
-
+    
+    # ==================== DATABASE SCHEMA REFERENCE ====================
+    with st.expander("📖 Database Schema Reference", expanded=False):
+        schema_info = get_table_schema()
+        if schema_info:
+            for table_name, info in schema_info.items():
+                st.markdown(f"**Table: `{table_name}`** ({info['row_count']:,} rows)")
+                col_names = [f"`{col['name']}` ({col['type']})" for col in info['columns']]
+                st.write(" | ".join(col_names))
+                if info['sample']:
+                    st.caption(f"Sample: {info['sample'][0]}")
+                st.divider()
 
 if __name__ == "__main__":
     main()
