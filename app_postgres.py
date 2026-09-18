@@ -256,6 +256,54 @@ def auto_generate_chart(df):
     return None
 
 # ==================== MAIN APP ====================
+@st.fragment
+def render_query_results(question, api_key, model):
+    """Query results wrapped in a fragment so session reconnects don't wipe them."""
+    if not question:
+        st.warning("⚠️ Please enter a question first")
+        return
+
+    with st.spinner("🤔 Analyzing and generating SQL..."):
+        schema_info = get_table_schema()
+        if not schema_info:
+            st.error("Could not load database schema")
+            return
+
+        sql = generate_sql(question, schema_info, api_key, model)
+
+        if sql:
+            with st.expander("🔍 View Generated SQL", expanded=True):
+                st.code(sql, language="sql")
+
+            with st.spinner("⚡ Executing query..."):
+                df, error = execute_sql(sql)
+
+            if error:
+                st.markdown(f"<div class=\"error-box\">❌ {error}</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class=\"success-box\">✅ Query executed successfully! {len(df)} rows returned</div>", unsafe_allow_html=True)
+                st.session_state.last_result = df
+                st.session_state.last_sql = sql
+                st.session_state.last_question = question
+
+                st.subheader("📋 Results")
+                st.dataframe(df, use_container_width=True, height=400)
+
+                if len(df) > 0:
+                    chart = auto_generate_chart(df)
+                    if chart:
+                        st.subheader("📊 Visualization")
+                        st.plotly_chart(chart, use_container_width=True)
+
+                csv = df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="📥 Download CSV",
+                    data=csv,
+                    file_name=f"query_results_{datetime.now().strftime(chr(37)+chr(89)+chr(109)+chr(100)+chr(95)+chr(37)+chr(72)+chr(37)+chr(77)+chr(37)+chr(83))}.csv",
+                    mime="text/csv"
+                )
+        else:
+            st.error("Failed to generate SQL")
 def main():
     st.markdown("""
     <style>
@@ -376,46 +424,12 @@ def main():
     
     # ==================== PROCESS QUERY ====================
     if submit and question:
-        with st.spinner("🤔 Analyzing and generating SQL..."):
-            schema_info = get_table_schema()
-            if not schema_info:
-                st.error("Could not load database schema")
-                return
-            
-            sql = generate_sql(question, schema_info, api_key, model)
-            
-            if sql:
-                with st.expander("🔍 View Generated SQL", expanded=True):
-                    st.code(sql, language='sql')
-                
-                with st.spinner("⚡ Executing query..."):
-                    df, error = execute_sql(sql)
-                
-                if error:
-                    st.markdown(f'<div class="error-box">❌ {error}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="success-box">✅ Query executed successfully! {len(df)} rows returned</div>', unsafe_allow_html=True)
-                    
-                    st.subheader("📋 Results")
-                    st.dataframe(df, use_container_width=True, height=400)
-                    
-                    # Auto chart
-                    if len(df) > 0:
-                        chart = auto_generate_chart(df)
-                        if chart:
-                            st.subheader("📊 Visualization")
-                            st.plotly_chart(chart, use_container_width=True)
-                    
-                    # Download CSV
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download CSV",
-                        data=csv,
-                        file_name=f"query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-            else:
-                st.error("Failed to generate SQL")
+        render_query_results(question, api_key, model)
 
+    # Show last result if it exists and no new submission
+    elif 'last_result' in st.session_state and st.session_state.last_result is not None:
+        st.subheader('📋 Last Query Results')
+        st.caption(f"Query: {st.session_state.get('last_question', '')}")
+        st.dataframe(st.session_state.last_result, use_container_width=True, height=400)
 if __name__ == "__main__":
     main()
