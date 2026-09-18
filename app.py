@@ -335,6 +335,14 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
+    # ==================== DEBUG (temporary) ====================
+    try:
+        _keys = list(st.secrets.keys())
+        st.warning(f"DEBUG: secrets keys = {_keys}")
+        st.warning(f"DEBUG: has DATABASE_URL = {'DATABASE_URL' in st.secrets}")
+    except Exception as _e:
+        st.warning(f"DEBUG: secrets unavailable: {_e}")
+
     # ==================== SIDEBAR ====================
     with st.sidebar:
         # ---- EXAMPLE QUESTIONS FIRST (easy visibility) ----
