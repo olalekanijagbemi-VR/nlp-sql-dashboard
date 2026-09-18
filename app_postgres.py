@@ -312,96 +312,132 @@ def main():
             padding: 1.5rem;
             border-radius: 10px;
             color: white;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
-        .main-header h1 {
-            margin: 0;
-            font-size: 2.5rem;
-            font-weight: 700;
-        }
-        .main-header p {
-            margin: 0.5rem 0 0 0;
-            opacity: 0.9;
-            font-size: 1.1rem;
-        }
+        .main-header h1 { margin: 0; font-size: 2.5rem; font-weight: 700; }
+        .main-header p { margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem; }
         .success-box {
-            padding: 1rem;
-            background: #d4edda;
-            color: #155724;
-            border-radius: 8px;
-            border: 1px solid #c3e6cb;
-            margin: 1rem 0;
+            padding: 1rem; background: #d4edda; color: #155724;
+            border-radius: 8px; border: 1px solid #c3e6cb; margin: 1rem 0;
         }
         .error-box {
+            padding: 1rem; background: #f8d7da; color: #721c24;
+            border-radius: 8px; border: 1px solid #f5c6cb; margin: 1rem 0;
+        }
+        .metric-card {
+            background: #ffffff;
             padding: 1rem;
-            background: #f8d7da;
-            color: #721c24;
-            border-radius: 8px;
-            border: 1px solid #f5c6cb;
-            margin: 1rem 0;
+            border-radius: 10px;
+            border-left: 4px solid #336791;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            text-align: center;
         }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Header
-    st.markdown("""
-    <div class="main-header">
-        <h1>🐘 AI-Powered SQL Analytics (PostgreSQL)</h1>
-        <p>Ask questions in plain English • Enterprise-grade database</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+
     # ==================== SIDEBAR ====================
     with st.sidebar:
-        st.markdown("### 🔑 Configuration")
-        
-        try:
-            api_key = st.secrets["GROQ_API_KEY"]
-            st.success("✅ API Key loaded from secrets")
-        except:
-            api_key = st.text_input("Groq API Key:", type="password", key="api_key")
-            if not api_key:
-                st.warning("⚠️ Enter your Groq API key to continue")
-                st.stop()
-        
-        model = st.selectbox("AI Model:", ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"], index=0)
-        st.divider()
-        
-        st.markdown("### 🐘 PostgreSQL Database")
-        try:
-            stats = get_table_stats()
-            if stats:
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("💰 Revenue", f"${stats['total_revenue']:,.0f}")
-                    st.metric("📦 Products", stats['unique_products'])
-                with col2:
-                    st.metric("🧾 Transactions", f"{stats['total_transactions']:,}")
-                    st.metric("👥 Customers", stats['unique_customers'])
-                if stats['min_date'] and stats['max_date']:
-                    st.caption(f"📅 {stats['min_date']} → {stats['max_date']}")
-            else:
-                st.error("Could not load stats")
-        except Exception as e:
-            st.info(f"🔄 Connecting to Supabase... {str(e)}")
-        
-        st.divider()
-        
-        st.markdown("### 💡 Example Questions")
-        examples = [
+        # ---- EXAMPLE QUESTIONS FIRST (easy visibility) ----
+        st.markdown("### 💡 Try These Questions")
+
+        st.markdown("**Simple:**")
+        examples_simple = [
             "Show top 5 products by revenue",
             "Show total revenue by region",
-            "Show customers with their total revenue and segment",
-            "Show top 3 products by revenue in each region"
+            "Show monthly sales for 2024",
+            "Which customer spent the most money?",
         ]
-        for ex in examples:
-            if st.button(f"📌 {ex}", key=ex):
+        for ex in examples_simple:
+            if st.button(f"📌 {ex}", key=f"s_{ex}"):
                 st.session_state.example_question = ex
                 st.session_state.auto_submit = True
                 st.rerun()
-    
-    # ==================== MAIN CONTENT ====================
-    if 'example_question' in st.session_state:
+
+        st.markdown("**JOIN Queries:**")
+        examples_join = [
+            "Show customers with their total revenue and segment",
+            "Show products with total sales and supplier info",
+            "Show sales by region with manager name",
+        ]
+        for ex in examples_join:
+            if st.button(f"🔗 {ex}", key=f"j_{ex}"):
+                st.session_state.example_question = ex
+                st.session_state.auto_submit = True
+                st.rerun()
+
+        st.markdown("**Complex:**")
+        examples_complex = [
+            "Show top 3 products by revenue in each region",
+            "Compare revenue by quarter for 2023 vs 2024",
+            "Find customers who spent above average",
+        ]
+        for ex in examples_complex:
+            if st.button(f"⚡ {ex}", key=f"c_{ex}"):
+                st.session_state.example_question = ex
+                st.session_state.auto_submit = True
+                st.rerun()
+
+        st.divider()
+
+        # ---- CONFIG ----
+        st.markdown("### 🔑 Configuration")
+        try:
+            api_key = st.secrets["GROQ_API_KEY"]
+            st.success("✅ API Key loaded")
+        except Exception:
+            api_key = st.text_input("Groq API Key:", type="password", key="api_key")
+            if not api_key:
+                st.warning("⚠️ Enter your Groq API key")
+                st.stop()
+
+        model = st.selectbox(
+            "AI Model:",
+            ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
+            index=0,
+        )
+
+    # ==================== MAIN AREA ====================
+    st.markdown("""
+    <div class="main-header">
+        <h1>🐘 AI-Powered SQL Analytics</h1>
+        <p>Ask questions in plain English • Enterprise-grade PostgreSQL</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ---- DATABASE OVERVIEW CARD (in main area) ----
+    try:
+        stats = get_table_stats()
+        if stats:
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">💰 REVENUE</div><div style="font-size:1.4rem;font-weight:700;">${stats["total_revenue"]:,.0f}</div></div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">🧾 TRANSACTIONS</div><div style="font-size:1.4rem;font-weight:700;">{stats["total_transactions"]:,}</div></div>', unsafe_allow_html=True)
+            with c3:
+                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">👥 CUSTOMERS</div><div style="font-size:1.4rem;font-weight:700;">{stats["unique_customers"]}</div></div>', unsafe_allow_html=True)
+            with c4:
+                st.markdown(f'<div class="metric-card"><div style="font-size:0.8rem;color:#666;">📦 PRODUCTS</div><div style="font-size:1.4rem;font-weight:700;">{stats["unique_products"]}</div></div>', unsafe_allow_html=True)
+    except Exception as e:
+        st.info(f"Connecting to Supabase... {e}")
+
+    st.markdown("")
+
+    # ---- PERSISTENT RESULT FROM PREVIOUS QUERY (survives reconnect) ----
+    if (
+        "last_result" in st.session_state
+        and st.session_state.last_result is not None
+        and not st.session_state.get("auto_submit", False)
+    ):
+        st.subheader("📋 Last Query Results")
+        st.caption(f"Query: {st.session_state.get('last_question', '')}")
+        if "last_sql" in st.session_state:
+            with st.expander("🔍 View SQL", expanded=False):
+                st.code(st.session_state.last_sql, language="sql")
+        st.dataframe(st.session_state.last_result, use_container_width=True, height=400)
+        st.markdown("---")
+
+    # ---- INPUT + SUBMIT ----
+    if "example_question" in st.session_state:
         question = st.session_state.example_question
         del st.session_state.example_question
     else:
@@ -409,27 +445,22 @@ def main():
             "💬 Ask your question in plain English:",
             placeholder="Example: Show me the top 10 products by revenue for Q4 2024",
             height=80,
-            key="question_input"
+            key="question_input",
         )
-    
-    auto_submit = st.session_state.get('auto_submit', False)
-    
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        submit = st.button("🚀 Generate", type="primary", use_container_width=True)
-    
+
+    auto_submit = st.session_state.get("auto_submit", False)
+    submit = st.button("🚀 Generate", type="primary", use_container_width=False)
+
     if auto_submit:
         submit = True
         st.session_state.auto_submit = False
-    
-    # ==================== PROCESS QUERY ====================
+
+    # ---- RUN QUERY ----
     if submit and question:
         render_query_results(question, api_key, model)
+    elif submit and not question:
+        st.warning("⚠️ Please enter a question first")
 
-    # Show last result if it exists and no new submission
-    elif 'last_result' in st.session_state and st.session_state.last_result is not None:
-        st.subheader('📋 Last Query Results')
-        st.caption(f"Query: {st.session_state.get('last_question', '')}")
-        st.dataframe(st.session_state.last_result, use_container_width=True, height=400)
+
 if __name__ == "__main__":
     main()
